@@ -218,13 +218,17 @@ class Irctc (WebAutomation):
                             except NoSuchElementException, e:
                                 logger ('ERROR', "Book now link not present")
 
-                            currStatusTextExtract = re.match ('available-([0-9]+)(#?)', currStatus,re.I)
+                            currStatusTextExtract = re.match ('([a-zA-Z]+)[ -\/]+([A-Z0-9]+)(#?)', currStatus,re.I)
                             print " Current status: " + currStatus
                             if currStatusTextExtract:
-                                if currStatusTextExtract.group(2) == "#":
+                                if currStatusTextExtract.group(1) == 'REGRET':
+                                    logger ('INFO', "Ticket status went to 'REGRET' for '" + trainNo + "' and quota '" + reqQuota + "'")
+                                    retryForTatkalTicket = False
+                                    bookTrainFlag        = False
+                                elif currStatusTextExtract.group(3) == '#':
                                     logger ('INFO', "Booking not opened for '" + trainNo + "' and quota '" + reqQuota + "'")
                                     time.sleep(10)
-                                    logger ('INFO', "Trying for tatkal ticket to open..")
+                                    logger ('INFO', 'Trying for tatkal ticket to open..')
                                 else:
                                     bookTrainFlag = True
                                     retryForTatkalTicket = False
@@ -247,8 +251,10 @@ class Irctc (WebAutomation):
                             self.waitForXPathAndClick (self.xpathConfigData['TRAINBERTHSELECT']['trainBookingContWithPrevChoice'], 10)
                         else:
                             logger ('INFO', "Unable to book the requested train !")
+                            self.errorCondition  = True
                 if not(berthFound):
                     logger ('ERROR', "Requested berth '" + reqBerthClass + "' not available in this train")
+                    self.errorCondition  = True
 
             if trainFound:
                 break
