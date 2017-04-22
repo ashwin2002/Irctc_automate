@@ -15,13 +15,14 @@
     along with Irctc_automate.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-import sys, traceback
+import sys, time, traceback
 import re, configparser
 import SendKeys
 
 from optparse import OptionParser
 from WebAutomation import WebAutomation
 from OnlinePayment import OnlinePayment
+from selenium.common.exceptions import NoSuchElementException
 
 def logger (logLevel, logMessage):
     print logLevel + ": " + logMessage
@@ -202,35 +203,44 @@ class Irctc (WebAutomation):
                 for availableClass in availableClassList:
                     if availableClass.text == reqClass:
                         berthFound = True
-                        availableClass.click()
-                        self.waitForXPathToLoad (self.xpathConfigData['TRAINBERTHSELECT']['trainBookNow'], self.timeoutVal)
-                        statusNode  = self.browserDriver.find_element_by_xpath(self.xpathConfigData['TRAINBERTHSELECT']['trainBookNow'])
-                        currStatus  = ((statusNode.text).replace("Book Now","")).strip()
-                        try:
-                            bookNowLink = statusNode.find_element_by_tag_name('a')
-                        except NoSuchElementException, e:
-                            logger ('ERROR', "Book now link not present")
+                        retryForTatkalTicket = True
 
-                        currStatusTextExtract = re.match ('available-([0-9]+)(#?)', currStatus,re.I)
-                        print " Current status: " + currStatus
-                        if currStatusTextExtract:
-                            if currStatusTextExtract.group(2) == "#":
-                                logger ('INFO', "Booking not opened for '" + trainNo + "' and quota '" + quota + "'")
-                            else:
-                                bookTrainFlag = True
-                        else:
-                            SendKeys.SendKeys ("%{TAB}")
-                            while True:
-                                userOption = (raw_input(" Proceed to booking ? (y/n) ")).lower()
-                                if userOption == 'y':
-                                    bookTrainFlag = True
-                                    break
-                                elif userOption == 'n':
-                                    bookTrainFlag = False
-                                    break
+                        while retryForTatkalTicket:
+                            if reqQuota != 'tatkal':
+                                retryForTatkalTicket = False
+
+                            availableClass.click()
+                            self.waitForXPathToLoad (self.xpathConfigData['TRAINBERTHSELECT']['trainBookNow'], self.timeoutVal)
+                            statusNode  = self.browserDriver.find_element_by_xpath(self.xpathConfigData['TRAINBERTHSELECT']['trainBookNow'])
+                            currStatus  = ((statusNode.text).replace("Book Now","")).strip()
+                            try:
+                                bookNowLink = statusNode.find_element_by_tag_name('a')
+                            except NoSuchElementException, e:
+                                logger ('ERROR', "Book now link not present")
+
+                            currStatusTextExtract = re.match ('available-([0-9]+)(#?)', currStatus,re.I)
+                            print " Current status: " + currStatus
+                            if currStatusTextExtract:
+                                if currStatusTextExtract.group(2) == "#":
+                                    logger ('INFO', "Booking not opened for '" + trainNo + "' and quota '" + reqQuota + "'")
+                                    time.sleep(10)
+                                    logger ('INFO', "Trying for tatkal ticket to open..")
                                 else:
-                                    continue
-                            SendKeys.SendKeys ("%{TAB}")
+                                    bookTrainFlag = True
+                                    retryForTatkalTicket = False
+                            else:
+                                SendKeys.SendKeys ("%{TAB}")
+                                while True:
+                                    userOption = (raw_input(" Proceed to booking ? (y/n) ")).lower()
+                                    if userOption == 'y':
+                                        bookTrainFlag = True
+                                        break
+                                    elif userOption == 'n':
+                                        bookTrainFlag = False
+                                        break
+                                    else:
+                                        continue
+                                SendKeys.SendKeys ("%{TAB}")
 
                         if bookTrainFlag:
                             bookNowLink.click ()
